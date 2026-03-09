@@ -1,33 +1,15 @@
+"use strict";
+
 const http = require("http");
-const fs = require("fs");
-const path = require("path");
 
-// Load .env manually (no dotenv package)
-function loadEnv() {
-  const envPath = path.join(__dirname, ".env");
-  if (!fs.existsSync(envPath)) return;
+const config = require("./config");
+const logger = require("./logger");
 
-  const lines = fs.readFileSync(envPath, "utf-8").split("\n");
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-    const idx = trimmed.indexOf("=");
-    if (idx === -1) continue;
-    const key = trimmed.slice(0, idx).trim();
-    const value = trimmed.slice(idx + 1).trim();
-    if (!process.env[key]) process.env[key] = value;
-  }
-}
-loadEnv();
-
-const HOSTNAME = process.env.HOSTNAME || "localhost";
-const PORT = parseInt(process.env.PORT) || 3000;
-
-//  In-memory "database"
 let books = [{ id: 1, title: "Kobzar", author: "Shevchenko", year: 1840 }];
 let nextId = 2;
 
-//  Helpers
+const START_TIME = Date.now();
+
 function getBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
@@ -52,6 +34,10 @@ function send(res, status, data) {
     "Content-Length": Buffer.byteLength(body),
   });
   res.end(body);
+
+  const method = res.req ? res.req.method : "?";
+  const pathname = res.req ? getPathname(res.req.url) : "/";
+  logger.logRequest(method, pathname, status);
 }
 
 function parseQuery(url) {
@@ -73,7 +59,6 @@ function getPathname(url) {
   return qIndex === -1 ? url : url.slice(0, qIndex);
 }
 
-// Validation
 const CURRENT_YEAR = new Date().getFullYear();
 
 function validateBookFields(fields, requireAll = false) {
@@ -95,15 +80,13 @@ function validateBookFields(fields, requireAll = false) {
   }
 
   if (fields.title !== undefined) {
-    if (typeof fields.title !== "string" || fields.title.trim() === "") {
+    if (typeof fields.title !== "string" || fields.title.trim() === "")
       errors.push('"title" must be a non-empty string.');
-    }
   }
 
   if (fields.author !== undefined) {
-    if (typeof fields.author !== "string" || fields.author.trim() === "") {
+    if (typeof fields.author !== "string" || fields.author.trim() === "")
       errors.push('"author" must be a non-empty string.');
-    }
   }
 
   if (fields.year !== undefined) {
@@ -111,17 +94,28 @@ function validateBookFields(fields, requireAll = false) {
       !Number.isInteger(fields.year) ||
       fields.year < 0 ||
       fields.year > CURRENT_YEAR
-    ) {
+    )
       errors.push(`"year" must be an integer between 0 and ${CURRENT_YEAR}.`);
-    }
   }
 
   return errors;
 }
 
-// Route handlers
+function handleHealth(req, res) {
+  const mem = process.memoryUsage();
+  send(res, 200, {
+    pid: process.pid,
+    nodeVersion: process.version,
+    platform: process.platform,
+    uptime: `${((Date.now() - START_TIME) / 1000).toFixed(2)}s`,
+    memoryUsage: {
+      rss: `${(mem.rss / 1024 / 1024).toFixed(2)} MB`,
+      heapTotal: `${(mem.heapTotal / 1024 / 1024).toFixed(2)} MB`,
+      heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(2)} MB`,
+    },
+  });
+}
 
-// GET /books?author=Shevchenko
 function handleGetBooks(req, res) {
   const query = parseQuery(req.url);
 
@@ -146,7 +140,6 @@ function handleGetBooks(req, res) {
   send(res, 200, books);
 }
 
-// POST /books
 async function handlePostBook(req, res) {
   let body;
   try {
@@ -164,11 +157,11 @@ async function handlePostBook(req, res) {
     author: body.author.trim(),
     year: body.year,
   };
+
   books.push(book);
   send(res, 201, book);
 }
 
-// PATCH /books/:id   update one or more fields (except id)
 async function handlePatchBook(req, res, id) {
   const book = books.find((b) => b.id === id);
   if (!book) return send(res, 404, { error: `Book with id ${id} not found.` });
@@ -200,7 +193,6 @@ async function handlePatchBook(req, res, id) {
   send(res, 200, book);
 }
 
-// PUT /books/:id   full replacement (except id)
 async function handlePutBook(req, res, id) {
   const index = books.findIndex((b) => b.id === id);
   if (index === -1)
@@ -226,10 +218,10 @@ async function handlePutBook(req, res, id) {
     author: body.author.trim(),
     year: body.year,
   };
+
   send(res, 200, books[index]);
 }
 
-// DELETE /books/:id
 function handleDeleteBook(req, res, id) {
   const index = books.findIndex((b) => b.id === id);
   if (index === -1)
@@ -242,12 +234,16 @@ function handleDeleteBook(req, res, id) {
   });
 }
 
-// Router
 const server = http.createServer(async (req, res) => {
+  res.req = req;
+
   const method = req.method;
   const pathname = getPathname(req.url);
 
-  // /books
+  if (pathname === "/health" && method === "GET") {
+    return handleHealth(req, res);
+  }
+
   if (pathname === "/books") {
     if (method === "GET") return handleGetBooks(req, res);
     if (method === "POST") return handlePostBook(req, res);
@@ -256,7 +252,6 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // /books/:id
   const bookIdMatch = pathname.match(/^\/books\/(\d+)$/);
   if (bookIdMatch) {
     const id = parseInt(bookIdMatch[1]);
@@ -268,18 +263,65 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  send(res, 404, { error: "Route not found. Available: /books, /books/:id" });
+  send(res, 404, {
+    error: "Route not found. Available: /health, /books, /books/:id",
+  });
 });
 
-//  Start
-server.listen(PORT, HOSTNAME, () => {
-  console.log(`Book Catalog server running at http://${HOSTNAME}:${PORT}`);
-  console.log("Available endpoints:");
-  console.log(
-    `  GET    /books?author=<name>  — search by author (or list all)`,
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
+function gracefulShutdown(signal) {
+  logger.warn(`Received ${signal}. Starting graceful shutdown...`);
+
+  const forceExitTimer = setTimeout(() => {
+    logger.error("Shutdown timeout exceeded. Forcing exit with code 2.");
+    process.exit(2);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  forceExitTimer.unref();
+
+  server.close((err) => {
+    if (err) {
+      logger.error(`Error during shutdown: ${err.message}`);
+      process.exit(1);
+    }
+    logger.info("Server closed successfully. Exiting with code 0.");
+    process.exit(0);
+  });
+}
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+// node -e "process.kill(pid, 'SIGTERM')"
+
+// setTimeout(() => {
+//   throw new Error("test crash");
+// }, 5000);
+process.on("uncaughtException", (err) => {
+  logger.error(`Uncaught Exception: ${err.message}`);
+  logger.error(err.stack);
+  gracefulShutdown("uncaughtException");
+});
+
+// setTimeout(() => {
+//   Promise.reject(new Error("test rejection"));
+// }, 5000);
+process.on("unhandledRejection", (reason) => {
+  const msg = reason instanceof Error ? reason.message : String(reason);
+  logger.error(`Unhandled Rejection: ${msg}`);
+  gracefulShutdown("unhandledRejection");
+});
+
+server.listen(config.PORT, config.HOSTNAME, () => {
+  logger.info(
+    `Book Catalog server running at http://${config.HOSTNAME}:${config.PORT}`,
   );
-  console.log(`  POST   /books                — add a new book`);
-  console.log(`  PATCH  /books/:id            — partial update`);
-  console.log(`  PUT    /books/:id            — full update`);
-  console.log(`  DELETE /books/:id            — delete a book`);
+  logger.info(`Mode: ${config.NODE_ENV}`);
+  logger.info("Available endpoints:");
+  logger.info("  GET    /health              — process health info");
+  logger.info("  GET    /books?author=<n>    — list all or filter by author");
+  logger.info("  POST   /books               — create a new book");
+  logger.info("  PATCH  /books/:id           — partial update");
+  logger.info("  PUT    /books/:id           — full update");
+  logger.info("  DELETE /books/:id           — delete a book");
 });
