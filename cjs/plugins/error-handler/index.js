@@ -1,4 +1,4 @@
-const fp = require('fastify-plugin');
+const fp = require('fastify-plugin').default;
 
 const errorHandlerPlugin = async (fastify, options) => {
   fastify.setErrorHandler((error, request, reply) => {
