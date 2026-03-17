@@ -1,6 +1,4 @@
-"use strict";
-
-const config = require("#config");
+import config from "#config";
 
 function formatDate(date) {
   const dd = String(date.getDate()).padStart(2, "0");
@@ -37,4 +35,4 @@ function error(message) {
   log("ERROR", message);
 }
 
-module.exports = { logRequest, info, warn, error };
+export { logRequest, info, warn, error };

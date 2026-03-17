@@ -1,11 +1,8 @@
-"use strict";
-
-const http = require("http");
-const config = require("#config");
-const logger = require("#logger");
-const router = require("#routes");
-
-const { SHUTDOWN_TIMEOUT_MS } = require("#constants");
+import http from "http";
+import config from "#config";
+import * as logger from "#logger";
+import router from "#routes";
+import { SHUTDOWN_TIMEOUT_MS } from "#constants";
 
 const server = http.createServer(router);
 

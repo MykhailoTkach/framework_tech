@@ -1,11 +1,9 @@
-"use strict";
-
-function getPathname(url) {
+export function getPathname(url) {
   const qIndex = url.indexOf("?");
   return qIndex === -1 ? url : url.slice(0, qIndex);
 }
 
-function parseQuery(url) {
+export function parseQuery(url) {
   const qIndex = url.indexOf("?");
   if (qIndex === -1) return {};
   const query = {};
@@ -18,5 +16,3 @@ function parseQuery(url) {
     });
   return query;
 }
-
-module.exports = { getPathname, parseQuery };

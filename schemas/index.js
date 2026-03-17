@@ -1,14 +1,4 @@
-"use strict";
-
-const envSchema = require("./env.schema");
-const { createBookSchema, updateBookSchema } = require("./book.body.schema");
-const bookQuerySchema = require("./book.query.schema");
-const bookParamsSchema = require("./book.params.schema");
-
-module.exports = {
-  envSchema,
-  createBookSchema,
-  updateBookSchema,
-  bookQuerySchema,
-  bookParamsSchema,
-};
+export { default as envSchema } from "./env.schema.js";
+export { createBookSchema, updateBookSchema } from "./book.body.schema.js";
+export { default as bookQuerySchema } from "./book.query.schema.js";
+export { default as bookParamsSchema } from "./book.params.schema.js";

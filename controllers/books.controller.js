@@ -1,17 +1,15 @@
-"use strict";
+import Ajv from "ajv";
 
-const Ajv = require("ajv");
-
-const send = require("#utils/send");
-const getBody = require("#utils/getBody");
-const { parseQuery } = require("#utils/parseUrl");
-const db = require("#data");
-const {
+import send from "#utils/send";
+import getBody from "#utils/getBody";
+import { parseQuery } from "#utils/parseUrl";
+import * as db from "#data";
+import {
   createBookSchema,
   updateBookSchema,
   bookQuerySchema,
   bookParamsSchema,
-} = require("#schemas");
+} from "#schemas";
 
 const ajv = new Ajv({ allErrors: true });
 const validateCreate = ajv.compile(createBookSchema);
@@ -142,7 +140,7 @@ function handleDeleteBook(req, res, id) {
   });
 }
 
-module.exports = {
+export {
   handleGetBooks,
   handlePostBook,
   handlePatchBook,

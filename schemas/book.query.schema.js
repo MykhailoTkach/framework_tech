@@ -1,5 +1,3 @@
-"use strict";
-
 const bookQuerySchema = {
   type: "object",
   additionalProperties: false,
@@ -8,4 +6,4 @@ const bookQuerySchema = {
   },
 };
 
-module.exports = bookQuerySchema;
+export default bookQuerySchema;

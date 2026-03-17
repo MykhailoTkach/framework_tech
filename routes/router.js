@@ -1,14 +1,12 @@
-"use strict";
-
-const send = require("#utils/send");
-const { getPathname } = require("#utils/parseUrl");
-const {
+import send from "#utils/send";
+import { getPathname } from "#utils/parseUrl";
+import {
   handleGetBooks,
   handlePostBook,
   handlePatchBook,
   handlePutBook,
   handleDeleteBook,
-} = require("#controllers");
+} from "#controllers";
 
 const START_TIME = Date.now();
 
@@ -61,4 +59,4 @@ async function router(req, res) {
   });
 }
 
-module.exports = router;
+export default router;

@@ -1,6 +1,4 @@
-"use strict";
-
-const { CURRENT_YEAR } = require("#constants");
+import { CURRENT_YEAR } from "#constants";
 
 const createBookSchema = {
   type: "object",
@@ -24,4 +22,4 @@ const updateBookSchema = {
   },
 };
 
-module.exports = { createBookSchema, updateBookSchema };
+export { createBookSchema, updateBookSchema };

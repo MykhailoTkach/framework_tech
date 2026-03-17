@@ -1,6 +1,4 @@
-"use strict";
-
-function getBody(req) {
+export default function getBody(req) {
   return new Promise((resolve, reject) => {
     let data = "";
     req.on("data", (chunk) => {
@@ -16,5 +14,3 @@ function getBody(req) {
     req.on("error", reject);
   });
 }
-
-module.exports = getBody;

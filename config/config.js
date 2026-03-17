@@ -1,10 +1,11 @@
-"use strict";
+import fs from "fs";
+import path from "path";
+import Ajv from "ajv";
+import { fileURLToPath } from "url";
+import { envSchema } from "#schemas";
 
-const fs = require("fs");
-const path = require("path");
-const Ajv = require("ajv");
-
-const { envSchema } = require("#schemas");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function loadEnv() {
   const envPath = path.join(__dirname, "../.env");
@@ -23,8 +24,7 @@ function loadEnv() {
 
 loadEnv();
 
-const ajv = new Ajv({ allErrors: true }); // allErrors — збирає всі помилки одразу
-
+const ajv = new Ajv({ allErrors: true });
 const validate = ajv.compile(envSchema);
 
 const valid = validate({
@@ -42,7 +42,7 @@ if (!valid) {
   process.exit(1);
 }
 
-module.exports = {
+export default {
   PORT: Number(process.env.PORT),
   HOSTNAME: process.env.HOSTNAME.trim(),
   NODE_ENV: process.env.NODE_ENV,

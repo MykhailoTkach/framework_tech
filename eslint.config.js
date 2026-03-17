@@ -1,19 +1,12 @@
-"use strict";
+import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
 
-const js = require("@eslint/js");
-const prettier = require("eslint-config-prettier");
-
-module.exports = [
+export default [
   js.configs.recommended,
   prettier,
   {
     languageOptions: {
       globals: {
-        require: "readonly",
-        module: "readonly",
-        exports: "readonly",
-        __dirname: "readonly",
-        __filename: "readonly",
         process: "readonly",
         console: "readonly",
         Buffer: "readonly",

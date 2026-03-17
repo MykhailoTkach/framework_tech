@@ -1,5 +1,3 @@
-"use strict";
-
 const envSchema = {
   type: "object",
   required: ["PORT", "HOSTNAME", "NODE_ENV"],
@@ -20,4 +18,4 @@ const envSchema = {
   },
 };
 
-module.exports = envSchema;
+export default envSchema;

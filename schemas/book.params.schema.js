@@ -1,5 +1,3 @@
-"use strict";
-
 const bookParamsSchema = {
   type: "object",
   required: ["id"],
@@ -8,4 +6,4 @@ const bookParamsSchema = {
   },
 };
 
-module.exports = bookParamsSchema;
+export default bookParamsSchema;

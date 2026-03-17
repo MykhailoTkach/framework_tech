@@ -1,9 +1,7 @@
-"use strict";
+import * as logger from "#logger";
+import { getPathname } from "#utils/parseUrl";
 
-const logger = require("#logger");
-const { getPathname } = require("#utils/parseUrl");
-
-function send(res, status, data) {
+export default function send(res, status, data) {
   const body = JSON.stringify(data, null, 2);
   res.writeHead(status, {
     "Content-Type": "application/json",
@@ -15,5 +13,3 @@ function send(res, status, data) {
   const pathname = res.req ? getPathname(res.req.url) : "/";
   logger.logRequest(method, pathname, status);
 }
-
-module.exports = send;
