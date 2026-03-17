@@ -1,0 +1,53 @@
+{
+  "name": "book_catalog",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "imports": {
+    "#config": "./config/config.js",
+    "#logger": "./logger.js",
+    "#constants": "./constants/index.js",
+    "#controllers": "./controllers/books.controller.js",
+    "#routes": "./routes/router.js",
+    "#schemas": "./schemas/index.js",
+    "#data": "./data/books.data.js",
+    "#utils/send": "./utils/send.js",
+    "#utils/getBody": "./utils/getBody.js",
+    "#utils/parseUrl": "./utils/parseUrl.js"
+  },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run lint && npm run format:check",
+    "predev": "npm run check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MykhailoTkach/framework_tech.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MykhailoTkach/framework_tech/issues"
+  },
+  "homepage": "https://github.com/MykhailoTkach/framework_tech#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1"
+  },
+  "dependencies": {
+    "ajv": "^8.18.0"
+  }
+}

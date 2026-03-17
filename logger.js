@@ -1,6 +1,6 @@
 "use strict";
 
-const config = require("./config");
+const config = require("#config");
 
 function formatDate(date) {
   const dd = String(date.getDate()).padStart(2, "0");
@@ -13,13 +13,8 @@ function formatDate(date) {
 }
 
 function log(level, message) {
-  const timestamp = formatDate(new Date());
-  const line = `[${timestamp}] [${level}] ${message}`;
-  if (level === "ERROR") {
-    console.error(line);
-  } else {
-    console.log(line);
-  }
+  const line = `[${formatDate(new Date())}] [${level}] ${message}`;
+  level === "ERROR" ? console.error(line) : console.log(line);
 }
 
 function logRequest(method, pathname, status) {
