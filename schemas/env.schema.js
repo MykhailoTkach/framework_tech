@@ -1,20 +1,15 @@
 const envSchema = {
   type: "object",
-  required: ["PORT", "HOSTNAME", "NODE_ENV"],
+  required: ["PORT", "HOSTNAME", "NODE_ENV", "ADMIN_API_KEY"],
   properties: {
-    PORT: {
-      type: "string",
-      pattern:
-        "^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$",
-    },
-    HOSTNAME: {
-      type: "string",
-      minLength: 1,
-    },
+    PORT: { type: "integer", default: 3000 },
+    HOSTNAME: { type: "string", default: "localhost" },
     NODE_ENV: {
       type: "string",
       enum: ["development", "production"],
+      default: "development",
     },
+    ADMIN_API_KEY: { type: "string", minLength: 1 },
   },
 };
 

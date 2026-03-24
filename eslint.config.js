@@ -17,6 +17,20 @@ export default [
     rules: {
       "no-unused-vars": "warn",
       "no-console": "off",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.name='process'][property.name='env']",
+          message: "Use fastify.config instead of process.env directly.",
+        },
+      ],
+    },
+  },
+  {
+    files: ["config/node-env.js"],
+    rules: {
+      "no-restricted-syntax": "off",
     },
   },
 ];

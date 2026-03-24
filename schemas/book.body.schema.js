@@ -1,6 +1,6 @@
 import { CURRENT_YEAR } from "#constants";
 
-const createBookSchema = {
+export const createBookSchema = {
   type: "object",
   required: ["title", "author", "year"],
   additionalProperties: false,
@@ -11,7 +11,7 @@ const createBookSchema = {
   },
 };
 
-const updateBookSchema = {
+export const updateBookSchema = {
   type: "object",
   additionalProperties: false,
   minProperties: 1,
@@ -21,5 +21,3 @@ const updateBookSchema = {
     year: { type: "integer", minimum: 0, maximum: CURRENT_YEAR },
   },
 };
-
-export { createBookSchema, updateBookSchema };
