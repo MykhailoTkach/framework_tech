@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "ChurnGuard",
+    "version": "1.0.0",
+    "author": "Student",
+    "description": "Система прогнозування відтоку клієнтів"
+  },
+  "paths": {
+    "data_dir": "./data",
+    "models_dir": "./models",
+    "reports_dir": "./reports",
+    "log_file": "./logs/churn_predictor.log"
+  },
+  "ui": {
+    "theme": "dark",
+    "language": "uk",
+    "primary_color": "#6366f1",
+    "accent_color": "#22d3ee",
+    "font_size": 14
+  },
+  "model": {
+    "default_algorithm": "random_forest",
+    "test_size": 0.2,
+    "random_state": 42,
+    "cv_folds": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "max_bytes": 5242880,
+    "backup_count": 3
+  }
+}

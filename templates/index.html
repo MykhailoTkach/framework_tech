@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ name }} v{{ version }}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <header>
+      <div class="logo">Churn<span>Guard</span></div>
+      <span class="ver">{{ name }} v{{ version }} | Random Forest + ROC</span>
+    </header>
+
+    <nav>
+      <button class="tab active" onclick="go('main', this)">🚀 Головна</button>
+      <button class="tab" onclick="go('results', this)">📈 Результати</button>
+      <button class="tab" onclick="go('clients', this)">👥 Клієнти</button>
+      <button class="tab" onclick="go('predict', this)">🔮 Прогноз</button>
+      <button class="tab" onclick="go('log', this)">📋 Лог</button>
+    </nav>
+
+    <main>
+      <div id="page-main" class="page active">
+        <div class="card">
+          <div class="card-title">Крок 1 — Генерація даних клієнтів</div>
+          <div
+            style="
+              display: flex;
+              gap: 12px;
+              align-items: flex-end;
+              flex-wrap: wrap;
+            "
+          >
+            <div class="field" style="margin: 0">
+              <label>Кількість клієнтів</label>
+              <input
+                type="number"
+                id="genN"
+                value="300"
+                min="50"
+                max="3000"
+                style="width: 140px"
+              />
+            </div>
+            <button class="btn btn-p" id="btnGen" onclick="doGen()">
+              ⚡ Згенерувати
+            </button>
+          </div>
+          <div id="aGen" class="alert"></div>
+          <div id="dataInfo" style="display: none; margin-top: 14px">
+            <div class="g4" id="dataKPIs"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Крок 2 — Навчання моделі (Random Forest)</div>
+          <button class="btn btn-p" id="btnTrain" onclick="doTrain()" disabled>
+            🧠 Навчити
+          </button>
+          <div id="aTrain" class="alert"></div>
+        </div>
+      </div>
+
+      <div id="page-results" class="page">
+        <div
+          id="noRes"
+          style="text-align: center; padding: 50px; color: var(--muted)"
+        >
+          ⚠️ Спочатку навчіть модель
+        </div>
+        <div id="hasRes" style="display: none">
+          <div class="g4" id="resKPIs"></div>
+          <div class="g2">
+            <div class="card">
+              <div class="card-title">ROC-крива</div>
+              <canvas id="rocChart" height="260"></canvas>
+            </div>
+            <div class="card">
+              <div class="card-title">Матриця плутанини</div>
+              <div class="cm" id="cmGrid"></div>
+              <div style="margin-top: 20px">
+                <div class="card-title">Метрики якості</div>
+                <canvas id="mChart" height="160"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">
+              Графік — згенерований Python/matplotlib
+            </div>
+            <img
+              id="chartImg"
+              src=""
+              alt="Аналіз"
+              style="
+                width: 100%;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+              "
+            />
+          </div>
+        </div>
+      </div>
+
+      <div id="page-clients" class="page">
+        <div class="card">
+          <div class="card-title">База клієнтів з прогнозами</div>
+
+          <div class="clients-toolbar">
+            <input
+              type="text"
+              id="clientSearch"
+              placeholder="🔍  Пошук за ID клієнта…"
+              oninput="filterClients()"
+              class="clients-search"
+            />
+
+            <select
+              id="filterRisk"
+              onchange="filterClients()"
+              class="clients-filter"
+            >
+              <option value="">Всі ризики</option>
+              <option value="Високий">🔴 Високий</option>
+              <option value="Середній">🟠 Середній</option>
+              <option value="Низький">🟢 Низький</option>
+            </select>
+
+            <select
+              id="filterPred"
+              onchange="filterClients()"
+              class="clients-filter"
+            >
+              <option value="">Всі прогнози</option>
+              <option value="Відтік">Відтік</option>
+              <option value="Залишиться">Залишиться</option>
+            </select>
+
+            <select
+              id="filterContract"
+              onchange="filterClients()"
+              class="clients-filter"
+            >
+              <option value="">Всі договори</option>
+              <option value="Місяць-до-місяця">Місяць-до-місяця</option>
+              <option value="Один рік">Один рік</option>
+              <option value="Два роки">Два роки</option>
+            </select>
+
+            <span class="clients-count" id="clientsCount">0 / 0</span>
+          </div>
+
+          <div class="table-wrap">
+            <div
+              id="noClients"
+              style="
+                text-align: center;
+                padding: 40px;
+                color: var(--muted);
+                display: none;
+              "
+            >
+              ⚠️ Спочатку згенеруйте дані та навчіть модель
+            </div>
+            <table class="clients-table" id="clientsTable">
+              <thead>
+                <tr>
+                  <th onclick="sortClients('CustomerID')">
+                    ID <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('Термін (міс)')">
+                    Термін<br />(міс) <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('Місячна оплата')">
+                    Місячна<br />оплата <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('Загальна оплата')">
+                    Загальна<br />оплата <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('Дзвінки підтримки')">
+                    Дзвінки<br />підтримки <span class="sort-icon">⇅</span>
+                  </th>
+                  <th>Тип договору</th>
+                  <th>Інтернет</th>
+                  <th onclick="sortClients('Онлайн-захист')">
+                    Онлайн-<br />захист <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('Пенсіонер')">
+                    Пенсіо-<br />нер <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('probability')">
+                    Ймовірність<br />відтоку <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('prediction')">
+                    Прогноз <span class="sort-icon">⇅</span>
+                  </th>
+                  <th onclick="sortClients('risk')">
+                    Ризик <span class="sort-icon">⇅</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody id="clientsTbody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination" id="pagination"></div>
+        </div>
+      </div>
+
+      <div id="page-predict" class="page">
+        <div class="card">
+          <div class="card-title">Прогноз відтоку для нового клієнта</div>
+          <div id="aPred" class="alert"></div>
+          <div class="fgrid">
+            <div class="field" id="ff-tenure">
+              <label>Термін обслуговування (1–120 міс)</label>
+              <input
+                type="number"
+                id="p-tenure"
+                min="1"
+                max="120"
+                placeholder="12"
+              />
+              <span class="err">Від 1 до 120</span>
+            </div>
+            <div class="field" id="ff-monthly">
+              <label>Місячна оплата ($)</label>
+              <input
+                type="number"
+                id="p-monthly"
+                min="0"
+                max="500"
+                step="0.01"
+                placeholder="65.00"
+              />
+              <span class="err">Від 0 до 500</span>
+            </div>
+            <div class="field" id="ff-support">
+              <label>Дзвінки до підтримки (0–50)</label>
+              <input
+                type="number"
+                id="p-support"
+                min="0"
+                max="50"
+                placeholder="2"
+              />
+              <span class="err">Від 0 до 50</span>
+            </div>
+            <div class="field">
+              <label>Тип договору</label>
+              <select id="p-contract">
+                <option>Місяць-до-місяця</option>
+                <option>Один рік</option>
+                <option>Два роки</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Інтернет</label>
+              <select id="p-internet">
+                <option>DSL</option>
+                <option>Оптоволокно</option>
+                <option>Немає</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Онлайн-захист</label>
+              <select id="p-security">
+                <option value="0">Немає</option>
+                <option value="1">Є</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Пенсіонер</label>
+              <select id="p-senior">
+                <option value="0">Ні</option>
+                <option value="1">Так</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-p" id="btnPred" onclick="doPred()" disabled>
+            🔮 Розрахувати ймовірність
+          </button>
+          <div class="prob-box" id="probBox">
+            <div
+              style="
+                display: flex;
+                align-items: flex-end;
+                gap: 14px;
+                flex-wrap: wrap;
+              "
+            >
+              <div>
+                <div
+                  style="
+                    font-size: 10px;
+                    color: var(--muted);
+                    text-transform: uppercase;
+                    letter-spacing: 2px;
+                    margin-bottom: 4px;
+                  "
+                >
+                  Ймовірність відтоку
+                </div>
+                <div class="prob-num" id="probNum">—</div>
+              </div>
+              <div>
+                <div
+                  id="riskBadge"
+                  style="
+                    font-size: 16px;
+                    font-weight: 700;
+                    padding: 4px 14px;
+                    border-radius: 20px;
+                  "
+                >
+                  —
+                </div>
+                <div
+                  id="riskDesc"
+                  style="font-size: 12px; color: var(--muted); margin-top: 6px"
+                >
+                  —
+                </div>
+              </div>
+            </div>
+            <div class="bar-wrap">
+              <div class="bar" id="probBar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-log" class="page">
+        <div class="card">
+          <div class="card-title">Журнал подій — logs/churn.log</div>
+          <div style="display: flex; gap: 10px; margin-bottom: 10px">
+            <button
+              class="btn btn-p"
+              onclick="loadLog()"
+              style="padding: 7px 16px; font-size: 12px"
+            >
+              ↻ Оновити
+            </button>
+            <span
+              style="
+                font-family: var(--mono);
+                font-size: 11px;
+                color: var(--muted);
+                align-self: center;
+              "
+              id="logCnt"
+            ></span>
+          </div>
+          <div class="log-box" id="logBox"></div>
+        </div>
+      </div>
+    </main>
+
+    <script src="/static/js/main.js"></script>
+  </body>
+</html>
