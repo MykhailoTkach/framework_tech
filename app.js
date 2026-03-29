@@ -23,20 +23,16 @@ export async function buildApp() {
   // 1. env — першим, fastify.config потрібен усім
   await fastify.register(fastifyEnv, { schema: envSchema, dotenv: true });
 
-  // 2. helmet — захисні заголовки для всіх відповідей
   await fastify.register(fastifyHelmet, { global: true });
 
-  // 3. cors — залежно від середовища
   await fastify.register(fastifyCors, {
     origin:
       fastify.config.NODE_ENV === "production" ? "https://example.com" : "*",
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
   });
 
-  // 4. sensible — reply.notFound() тощо доступні в маршрутах
   await fastify.register(fastifySensible);
 
-  // 5. централізована обробка помилок
   fastify.setErrorHandler((error, request, reply) => {
     request.log.error(
       { err: error, method: request.method, url: request.url },
@@ -49,14 +45,11 @@ export async function buildApp() {
     });
   });
 
-  // 6. реєстрація схем для $ref
   fastify.addSchema(bookSchema);
 
-  // 7. маршрути — останніми
   await fastify.register(healthRoutes);
   await fastify.register(booksRoutes);
 
-  // хук закриття сервера
   fastify.addHook("onClose", async () => {
     fastify.log.info("Server closed successfully.");
   });

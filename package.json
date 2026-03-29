@@ -23,6 +23,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "node --watch --env-file=.env server.js",
+    "dev:debug": "node --env-file=.env server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

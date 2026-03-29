@@ -1,5 +1,6 @@
 import {
   getBooks,
+  getBookById,
   createBook,
   patchBook,
   putBook,
@@ -47,6 +48,14 @@ export default async function booksRoutes(fastify) {
       response: { 200: bookResponse },
     },
     handler: patchBook,
+  });
+
+  fastify.get("/books/:id", {
+    schema: {
+      params: bookParamsSchema,
+      response: { 200: bookResponse },
+    },
+    handler: getBookById,
   });
 
   fastify.put("/books/:id", {

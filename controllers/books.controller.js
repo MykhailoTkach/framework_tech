@@ -28,6 +28,13 @@ export async function createBook(request, reply) {
   return reply.status(201).send(book);
 }
 
+export async function getBookById(request, reply) {
+  const { id } = request.params;
+  const book = db.findById(id);
+  if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
+  return reply.send(book);
+}
+
 export async function patchBook(request, reply) {
   const { id } = request.params;
   const body = request.body;
