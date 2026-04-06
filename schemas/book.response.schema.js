@@ -6,6 +6,8 @@ export const bookSchema = {
     title: { type: "string" },
     author: { type: "string" },
     year: { type: "integer" },
+    genre: { type: "string" },
+    image: { type: ["string", "null"] },
   },
 };
 

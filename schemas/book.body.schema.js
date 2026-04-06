@@ -8,6 +8,7 @@ export const createBookSchema = {
     title: { type: "string", minLength: 1 },
     author: { type: "string", minLength: 1 },
     year: { type: "integer", minimum: 0, maximum: CURRENT_YEAR },
+    genre: { type: "string", minLength: 1 },
   },
 };
 
@@ -19,5 +20,6 @@ export const updateBookSchema = {
     title: { type: "string", minLength: 1 },
     author: { type: "string", minLength: 1 },
     year: { type: "integer", minimum: 0, maximum: CURRENT_YEAR },
+    genre: { type: "string", minLength: 1 },
   },
 };

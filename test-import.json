@@ -1,0 +1,16 @@
+[
+  {
+    "title": "Clean Code",
+    "author": "Martin",
+    "year": 2008,
+    "genre": "Programming"
+  },
+  { "title": "", "author": "Author", "year": 2020 },
+  { "author": "No Title", "year": 2020 },
+  {
+    "title": "Valid Book",
+    "author": "Author",
+    "year": 2025,
+    "genre": "Fiction"
+  }
+]

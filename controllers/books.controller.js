@@ -1,84 +1,194 @@
 import * as db from "#data";
 import { MESSAGES } from "#constants";
+import { withImageUrl } from "../utils/imageUrl.js";
+import { stringify } from "csv-stringify/sync";
+import { parse } from "csv-parse/sync";
+import Ajv from "ajv";
+import fs from "fs/promises";
+import path from "path";
+import { createWriteStream } from "fs";
+
+const importSchema = {
+  type: "object",
+  required: ["title", "author", "year"],
+  properties: {
+    title: { type: "string", minLength: 1 },
+    author: { type: "string", minLength: 1 },
+    year: { type: "integer", minimum: 0, maximum: new Date().getFullYear() },
+    genre: { type: "string" },
+  },
+};
+const ajv = new Ajv({ coerceTypes: true });
+const validateImport = ajv.compile(importSchema);
 
 export async function getBooks(request, reply) {
   const { author } = request.query;
-
+  let books = await db.getAll();
   if (author !== undefined) {
-    const result = db
-      .getAll()
-      .filter((b) => b.author.toLowerCase() === author.toLowerCase());
-    return reply.send(result);
+    books = books.filter(
+      (b) => b.author.toLowerCase() === author.toLowerCase(),
+    );
   }
-
-  return reply.send(db.getAll());
+  return reply.send(books.map((b) => withImageUrl(request, b)));
 }
 
 export async function createBook(request, reply) {
   const body = request.body;
-
-  const book = {
-    id: db.getNextId(),
+  const book = await db.create({
     title: body.title.trim(),
     author: body.author.trim(),
     year: body.year,
-  };
-
-  db.push(book);
-  return reply.status(201).send(book);
+    genre: body.genre?.trim() ?? "",
+  });
+  return reply.status(201).send(withImageUrl(request, book));
 }
 
 export async function getBookById(request, reply) {
   const { id } = request.params;
-  const book = db.findById(id);
+  const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
-  return reply.send(book);
+  return reply.send(withImageUrl(request, book));
 }
 
 export async function patchBook(request, reply) {
   const { id } = request.params;
   const body = request.body;
 
-  const book = db.findById(id);
+  const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
-
   if ("id" in body) throw reply.badRequest(MESSAGES.ID_UPDATE_FORBIDDEN);
 
-  if (body.title !== undefined) book.title = body.title.trim();
-  if (body.author !== undefined) book.author = body.author.trim();
-  if (body.year !== undefined) book.year = body.year;
+  const updates = {};
+  if (body.title !== undefined) updates.title = body.title.trim();
+  if (body.author !== undefined) updates.author = body.author.trim();
+  if (body.year !== undefined) updates.year = body.year;
+  if (body.genre !== undefined) updates.genre = body.genre.trim();
 
-  return reply.send(book);
+  const updated = await db.update(id, updates);
+  return reply.send(withImageUrl(request, updated));
 }
 
 export async function putBook(request, reply) {
   const { id } = request.params;
   const body = request.body;
 
-  const index = db.findIndexById(id);
-  if (index === -1) throw reply.notFound(MESSAGES.NOT_FOUND);
-
+  const existing = await db.findById(id);
+  if (!existing) throw reply.notFound(MESSAGES.NOT_FOUND);
   if ("id" in body) throw reply.badRequest(MESSAGES.ID_UPDATE_FORBIDDEN);
 
-  db.replaceAt(index, {
-    id,
+  const replaced = await db.replace(id, {
     title: body.title.trim(),
     author: body.author.trim(),
     year: body.year,
+    genre: body.genre?.trim() ?? "",
+    image: existing.image, // зберігаємо зображення при PUT
   });
-
-  return reply.send(db.getAll()[index]);
+  return reply.send(withImageUrl(request, replaced));
 }
 
 export async function deleteBook(request, reply) {
   const { id } = request.params;
-
-  const index = db.findIndexById(id);
-  if (index === -1) throw reply.notFound(MESSAGES.NOT_FOUND);
-
-  const deleted = db.removeAt(index);
+  const deleted = await db.remove(id);
+  if (!deleted) throw reply.notFound(MESSAGES.NOT_FOUND);
   return reply.send({
     message: `Book "${deleted.title}" deleted.`,
     book: deleted,
   });
+}
+
+export async function exportBooks(request, reply) {
+  const books = await db.getAll();
+  const rows = books.map((b) => ({
+    id: b.id,
+    title: b.title,
+    author: b.author,
+    year: b.year,
+    genre: b.genre ?? "",
+    // Поле image як повний URL
+    image: b.image
+      ? `${request.protocol}://${request.hostname}/uploads${b.image}`
+      : "",
+  }));
+  const csv = stringify(rows, { header: true });
+  reply.header("Content-Type", "text/csv");
+  reply.header("Content-Disposition", 'attachment; filename="books.csv"');
+  return reply.send(csv);
+}
+
+export async function importBooks(request, reply) {
+  const data = await request.file();
+  const buffer = await data.toBuffer();
+
+  let records;
+  if (data.mimetype === "application/json" || data.filename.endsWith(".json")) {
+    try {
+      records = JSON.parse(buffer.toString());
+    } catch {
+      throw reply.badRequest("Invalid JSON file.");
+    }
+  } else if (data.mimetype === "text/csv" || data.filename.endsWith(".csv")) {
+    records = parse(buffer, { columns: true, skip_empty_lines: true });
+  } else {
+    throw reply.badRequest("Unsupported format. Use JSON or CSV.");
+  }
+
+  if (!Array.isArray(records)) {
+    throw reply.badRequest("File must contain an array of records.");
+  }
+
+  let imported = 0;
+  const rejected = [];
+
+  for (let i = 0; i < records.length; i++) {
+    const raw = records[i];
+    const record = {
+      title: raw.title?.trim(),
+      author: raw.author?.trim(),
+      year: Number(raw.year),
+      genre: raw.genre?.trim() ?? "",
+    };
+
+    const valid = validateImport(record);
+    if (!valid) {
+      rejected.push({
+        index: i + 1,
+        reason: ajv.errorsText(validateImport.errors),
+      });
+      continue;
+    }
+
+    await db.create(record);
+    imported++;
+  }
+
+  return reply.send({ imported, rejectedCount: rejected.length, rejected });
+}
+
+export async function uploadImage(request, reply) {
+  const { id } = request.params;
+  const book = await db.findById(id);
+  if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
+
+  const data = await request.file();
+
+  if (!["image/jpeg", "image/png"].includes(data.mimetype)) {
+    throw reply.badRequest("Only JPEG and PNG images are allowed.");
+  }
+
+  const ext = data.mimetype === "image/jpeg" ? ".jpg" : ".png";
+  const uploadDir = path.join(process.cwd(), "uploads", String(id));
+  await fs.mkdir(uploadDir, { recursive: true });
+
+  const dest = path.join(uploadDir, `image${ext}`);
+  const writable = createWriteStream(dest);
+
+  await new Promise((resolve, reject) => {
+    data.file.pipe(writable);
+    writable.on("finish", resolve);
+    writable.on("error", reject);
+  });
+
+  const relPath = `/${id}/image${ext}`;
+  const updated = await db.update(id, { image: relPath });
+  return reply.send(withImageUrl(request, updated));
 }

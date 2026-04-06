@@ -5,6 +5,9 @@ import {
   patchBook,
   putBook,
   deleteBook,
+  exportBooks,
+  importBooks,
+  uploadImage,
 } from "#controllers";
 import {
   createBookSchema,
@@ -21,24 +24,29 @@ const bookResponse = {
     title: { type: "string" },
     author: { type: "string" },
     year: { type: "integer" },
+    genre: { type: "string" },
+    image: { type: ["string", "null"] },
   },
 };
 
 export default async function booksRoutes(fastify) {
+  // Статичні маршрути реєструємо ДО параметричних /:id
+  fastify.get("/books/export", { handler: exportBooks });
+  fastify.post("/books/import", { handler: importBooks });
+
   fastify.get("/books", {
-    schema: {
-      querystring: bookQuerySchema,
-      response: { 200: bookListSchema },
-    },
+    schema: { querystring: bookQuerySchema, response: { 200: bookListSchema } },
     handler: getBooks,
   });
 
   fastify.post("/books", {
-    schema: {
-      body: createBookSchema,
-      response: { 201: bookResponse },
-    },
+    schema: { body: createBookSchema, response: { 201: bookResponse } },
     handler: createBook,
+  });
+
+  fastify.get("/books/:id", {
+    schema: { params: bookParamsSchema, response: { 200: bookResponse } },
+    handler: getBookById,
   });
 
   fastify.patch("/books/:id", {
@@ -48,14 +56,6 @@ export default async function booksRoutes(fastify) {
       response: { 200: bookResponse },
     },
     handler: patchBook,
-  });
-
-  fastify.get("/books/:id", {
-    schema: {
-      params: bookParamsSchema,
-      response: { 200: bookResponse },
-    },
-    handler: getBookById,
   });
 
   fastify.put("/books/:id", {
@@ -68,9 +68,12 @@ export default async function booksRoutes(fastify) {
   });
 
   fastify.delete("/books/:id", {
-    schema: {
-      params: bookParamsSchema,
-    },
+    schema: { params: bookParamsSchema },
     handler: deleteBook,
+  });
+
+  fastify.post("/books/:id/image", {
+    schema: { params: bookParamsSchema },
+    handler: uploadImage,
   });
 }
