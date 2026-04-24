@@ -1,0 +1,8 @@
+{
+  "genres": [
+    { "id": 1, "name": "Fiction", "ageRating": 12 },
+    { "id": 2, "name": "Poetry", "ageRating": 0 },
+    { "id": 3, "name": "Drama", "ageRating": 16 },
+    { "id": 4, "name": "Novel", "ageRating": 12 }
+  ]
+}

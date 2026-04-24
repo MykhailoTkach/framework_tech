@@ -11,6 +11,13 @@ import path from "path";
 import fs from "fs/promises";
 
 import { envSchema, bookSchema } from "#schemas";
+// Routes
+import booksV2Routes from "./routes/books.v2.routes.js";
+import fastifyRateLimit from "@fastify/rate-limit";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
+import githubRoutes, { githubV2Routes } from "./routes/github.routes.js";
+
 import booksRoutes from "./routes/books.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import { SHUTDOWN_TIMEOUT_MS } from "#constants";
@@ -32,6 +39,8 @@ export async function buildApp() {
   await fastify.register(fastifyHelmet, {
     global: true,
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: false,
   });
 
   await fastify.register(fastifyCors, {
@@ -45,12 +54,42 @@ export async function buildApp() {
   await fastify.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   });
+  //s
+  await fastify.register(fastifyRateLimit, {
+    global: true,
+    max: 100,
+    timeWindow: "1 minute",
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      error: "Too Many Requests",
+      message: "You have exceeded the request limit. Try again later.",
+    }),
+  });
+
+  await fastify.register(fastifySwagger, {
+    openapi: {
+      info: {
+        title: "Book Catalog API",
+        description: "REST API для каталогу книг",
+        version: "1.0.0",
+      },
+      servers: [{ url: "http://localhost:3000" }],
+    },
+  });
+
+  await fastify.register(fastifySwaggerUi, {
+    routePrefix: "/docs",
+    uiConfig: {
+      docExpansion: "list",
+    },
+  });
 
   await fs.mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
-
+  // s
   await fastify.register(fastifyStatic, {
     root: path.join(process.cwd(), "uploads"),
     prefix: "/uploads/",
+    decorateReply: false,
   });
 
   fastify.setErrorHandler((error, request, reply) => {
@@ -87,8 +126,12 @@ export async function buildApp() {
     fastify.log.error(`Migration check failed: ${err.message}`);
   }
 
-  await fastify.register(healthRoutes);
-  await fastify.register(booksRoutes);
+  await fastify.register(booksRoutes, { prefix: "/api/v1" });
+  await fastify.register(healthRoutes, { prefix: "/api/v1" });
+  await fastify.register(booksV2Routes, { prefix: "/api/v2" });
+
+  await fastify.register(githubRoutes, { prefix: "/api/v1" });
+  await fastify.register(githubV2Routes, { prefix: "/api/v2" });
 
   fastify.addHook("onClose", async () => {
     fastify.log.info("Server closed successfully.");

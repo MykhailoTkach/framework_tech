@@ -8,6 +8,7 @@ export const bookSchema = {
     year: { type: "integer" },
     genre: { type: "string" },
     image: { type: ["string", "null"] },
+    pagecount: { type: "integer" },
   },
 };
 

@@ -8,6 +8,7 @@ import {
   exportBooks,
   importBooks,
   uploadImage,
+  getBookDetails,
 } from "#controllers";
 import {
   createBookSchema,
@@ -75,5 +76,10 @@ export default async function booksRoutes(fastify) {
   fastify.post("/books/:id/image", {
     schema: { params: bookParamsSchema },
     handler: uploadImage,
+  });
+  // s
+  fastify.get("/books/:id/details", {
+    schema: { params: bookParamsSchema },
+    handler: getBookDetails,
   });
 }

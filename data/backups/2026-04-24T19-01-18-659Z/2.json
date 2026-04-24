@@ -1,8 +1,9 @@
 {
-  "id": 2,
   "title": "Tini zabutykh predkiv",
   "author": "Kotsiubynsky",
   "year": 1911,
   "genre": "Novel",
-  "image": null
+  "image": "/2/image.jpg",
+  "pagecount": 0,
+  "id": 2
 }

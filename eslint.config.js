@@ -12,6 +12,8 @@ export default [
         Buffer: "readonly",
         setTimeout: "readonly",
         clearTimeout: "readonly",
+        fetch: "readonly",
+        AbortController: "readonly",
       },
     },
     rules: {
@@ -28,7 +30,7 @@ export default [
     },
   },
   {
-    files: ["config/node-env.js"],
+    files: ["config/node-env.js", "controllers/github.controller.js"],
     rules: {
       "no-restricted-syntax": "off",
     },

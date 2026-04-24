@@ -10,6 +10,7 @@ const envSchema = {
       default: "development",
     },
     ADMIN_API_KEY: { type: "string", minLength: 1 },
+    GITHUB_TOKEN: { type: "string", default: "" }, // додано
   },
 };
 

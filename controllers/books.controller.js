@@ -7,7 +7,11 @@ import Ajv from "ajv";
 import fs from "fs/promises";
 import path from "path";
 import { createWriteStream } from "fs";
+//s
+import { fetchWithRetry } from "../utils/fetchWithRetry.js";
+import { getCached, setCached } from "../utils/cache.js";
 
+// Схема для валідації імпорту (additionalProperties дозволені — CSV може мати зайві колонки)
 const importSchema = {
   type: "object",
   required: ["title", "author", "year"],
@@ -31,7 +35,61 @@ export async function getBooks(request, reply) {
   }
   return reply.send(books.map((b) => withImageUrl(request, b)));
 }
+// update
+export async function getBooksV2(request, reply) {
+  const { author, page = 1, limit = 10 } = request.query;
 
+  let books = await db.getAll();
+
+  if (author !== undefined) {
+    books = books.filter(
+      (b) => b.author.toLowerCase() === author.toLowerCase(),
+    );
+  }
+
+  const total = books.length;
+  const totalPages = Math.ceil(total / limit);
+  const start = (page - 1) * limit;
+  const data = books
+    .slice(start, start + limit)
+    .map((b) => withImageUrl(request, b));
+
+  return reply.send({
+    data,
+    meta: { total, page, limit, totalPages },
+  });
+}
+
+export async function getBookDetails(request, reply) {
+  const { id } = request.params;
+
+  const book = await db.findById(id);
+  if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
+
+  // шукаємо жанр в кеші
+  const cacheKey = `genre_${book.genre}`;
+  let genreData = await getCached(cacheKey);
+
+  if (!genreData) {
+    try {
+      const response = await fetchWithRetry(
+        `http://localhost:3001/genres?name=${encodeURIComponent(book.genre)}`,
+      );
+      const genres = await response.json();
+      genreData = genres[0] ?? null;
+      if (genreData) await setCached(cacheKey, genreData);
+    } catch {
+      // graceful degradation — зовнішній сервіс недоступний
+      genreData = null;
+    }
+  }
+
+  return reply.send({
+    ...withImageUrl(request, book),
+    genreDetails: genreData, // null якщо сервіс недоступний
+  });
+}
+// s
 export async function createBook(request, reply) {
   const body = request.body;
   const book = await db.create({
@@ -141,6 +199,7 @@ export async function importBooks(request, reply) {
 
   for (let i = 0; i < records.length; i++) {
     const raw = records[i];
+    // Нормалізація (CSV — всі поля рядки)
     const record = {
       title: raw.title?.trim(),
       author: raw.author?.trim(),
