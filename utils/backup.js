@@ -1,4 +1,8 @@
 import fs from "fs/promises";
+import { createWriteStream } from "fs";
+import { createGzip } from "zlib";
+import { pipeline } from "stream/promises";
+import { Readable } from "stream";
 import path from "path";
 
 const DATA_DIR = path.join(process.cwd(), "data", "items");
@@ -7,6 +11,7 @@ const MAX_BACKUPS = 5;
 
 export async function performBackup(logger) {
   await fs.mkdir(DATA_DIR, { recursive: true });
+  await fs.mkdir(BACKUPS_DIR, { recursive: true });
 
   const files = (await fs.readdir(DATA_DIR).catch(() => [])).filter((f) =>
     f.endsWith(".json"),
@@ -17,21 +22,38 @@ export async function performBackup(logger) {
     return;
   }
 
+  // Зчитуємо вміст всіх файлів і обєднуємо
+  const contents = await Promise.all(
+    files.map(async (f) => {
+      const raw = await fs.readFile(path.join(DATA_DIR, f), "utf8");
+      return raw;
+    }),
+  );
+
+  // Обєднуємо всі JSON файли через новий рядок
+  const combined = contents.join("\n");
+
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupDir = path.join(BACKUPS_DIR, timestamp);
-  await fs.mkdir(backupDir, { recursive: true });
+  const backupPath = path.join(BACKUPS_DIR, `${timestamp}.gz`);
 
-  for (const file of files) {
-    await fs.copyFile(path.join(DATA_DIR, file), path.join(backupDir, file));
-  }
-  logger?.info(`Backup created: data/backups/${timestamp}/`);
+  // pipeline
+  await pipeline(
+    Readable.from([combined]),
+    createGzip(),
+    createWriteStream(backupPath),
+  );
 
-  const allBackups = (await fs.readdir(BACKUPS_DIR)).sort();
+  logger?.info(`Backup created: data/backups/${timestamp}.gz`);
+
+  const allBackups = (await fs.readdir(BACKUPS_DIR))
+    .filter((f) => f.endsWith(".gz"))
+    .sort();
+
   if (allBackups.length > MAX_BACKUPS) {
     const toDelete = allBackups.slice(0, allBackups.length - MAX_BACKUPS);
-    for (const dir of toDelete) {
-      await fs.rm(path.join(BACKUPS_DIR, dir), { recursive: true });
-      logger?.info(`Old backup removed: ${dir}`);
+    for (const file of toDelete) {
+      await fs.unlink(path.join(BACKUPS_DIR, file));
+      logger?.info(`Old backup removed: ${file}`);
     }
   }
 }

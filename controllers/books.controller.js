@@ -1,17 +1,20 @@
 import * as db from "#data";
 import { MESSAGES } from "#constants";
 import { withImageUrl } from "../utils/imageUrl.js";
-import { stringify } from "csv-stringify/sync";
+import { stringify as stringifySync } from "csv-stringify/sync";
+import { stringify as stringifyStream } from "csv-stringify";
 import { parse } from "csv-parse/sync";
 import Ajv from "ajv";
 import fs from "fs/promises";
 import path from "path";
 import { createWriteStream } from "fs";
-//s
 import { fetchWithRetry } from "../utils/fetchWithRetry.js";
 import { getCached, setCached } from "../utils/cache.js";
+import { pipeline } from "stream/promises";
+import { Readable, Transform } from "stream";
+import { BookAgeTransform } from "../src/transforms/bookTransform.js";
+import { bookEvents, EVENTS } from "../src/events/bookEvents.js";
 
-// Схема для валідації імпорту (additionalProperties дозволені — CSV може мати зайві колонки)
 const importSchema = {
   type: "object",
   required: ["title", "author", "year"],
@@ -35,10 +38,9 @@ export async function getBooks(request, reply) {
   }
   return reply.send(books.map((b) => withImageUrl(request, b)));
 }
-// update
+
 export async function getBooksV2(request, reply) {
   const { author, page = 1, limit = 10 } = request.query;
-
   let books = await db.getAll();
 
   if (author !== undefined) {
@@ -54,19 +56,14 @@ export async function getBooksV2(request, reply) {
     .slice(start, start + limit)
     .map((b) => withImageUrl(request, b));
 
-  return reply.send({
-    data,
-    meta: { total, page, limit, totalPages },
-  });
+  return reply.send({ data, meta: { total, page, limit, totalPages } });
 }
 
 export async function getBookDetails(request, reply) {
   const { id } = request.params;
-
   const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
 
-  // шукаємо жанр в кеші
   const cacheKey = `genre_${book.genre}`;
   let genreData = await getCached(cacheKey);
 
@@ -79,17 +76,16 @@ export async function getBookDetails(request, reply) {
       genreData = genres[0] ?? null;
       if (genreData) await setCached(cacheKey, genreData);
     } catch {
-      // graceful degradation — зовнішній сервіс недоступний
       genreData = null;
     }
   }
 
   return reply.send({
     ...withImageUrl(request, book),
-    genreDetails: genreData, // null якщо сервіс недоступний
+    genreDetails: genreData,
   });
 }
-// s
+
 export async function createBook(request, reply) {
   const body = request.body;
   const book = await db.create({
@@ -98,6 +94,8 @@ export async function createBook(request, reply) {
     year: body.year,
     genre: body.genre?.trim() ?? "",
   });
+  console.log("Emitting CREATED event:", book.id);
+  bookEvents.emit(EVENTS.CREATED, book);
   return reply.status(201).send(withImageUrl(request, book));
 }
 
@@ -123,6 +121,7 @@ export async function patchBook(request, reply) {
   if (body.genre !== undefined) updates.genre = body.genre.trim();
 
   const updated = await db.update(id, updates);
+  bookEvents.emit(EVENTS.UPDATED, updated);
   return reply.send(withImageUrl(request, updated));
 }
 
@@ -139,8 +138,9 @@ export async function putBook(request, reply) {
     author: body.author.trim(),
     year: body.year,
     genre: body.genre?.trim() ?? "",
-    image: existing.image, // зберігаємо зображення при PUT
+    image: existing.image,
   });
+  bookEvents.emit(EVENTS.UPDATED, replaced);
   return reply.send(withImageUrl(request, replaced));
 }
 
@@ -148,6 +148,7 @@ export async function deleteBook(request, reply) {
   const { id } = request.params;
   const deleted = await db.remove(id);
   if (!deleted) throw reply.notFound(MESSAGES.NOT_FOUND);
+  bookEvents.emit(EVENTS.DELETED, { id });
   return reply.send({
     message: `Book "${deleted.title}" deleted.`,
     book: deleted,
@@ -155,22 +156,58 @@ export async function deleteBook(request, reply) {
 }
 
 export async function exportBooks(request, reply) {
+  const { transform } = request.query;
   const books = await db.getAll();
+
   const rows = books.map((b) => ({
-    id: b.id,
-    title: b.title,
-    author: b.author,
-    year: b.year,
-    genre: b.genre ?? "",
-    // Поле image як повний URL
+    ...b,
     image: b.image
-      ? `${request.protocol}://${request.hostname}/uploads${b.image}`
+      ? `${request.protocol}://${request.host}/uploads${b.image}`
       : "",
   }));
-  const csv = stringify(rows, { header: true });
+
   reply.header("Content-Type", "text/csv");
   reply.header("Content-Disposition", 'attachment; filename="books.csv"');
-  return reply.send(csv);
+
+  if (transform === "true") {
+    // асинхронний stringify для stream
+    const csvStringify = stringifyStream({ header: true });
+    await pipeline(
+      Readable.from(rows),
+      new BookAgeTransform(),
+      csvStringify,
+      reply.raw,
+    );
+  } else {
+    const csv = stringifySync(rows, { header: true });
+    return reply.send(csv);
+  }
+}
+
+export async function streamBooks(request, reply) {
+  const DATA_DIR = path.join(process.cwd(), "data", "items");
+  const files = (await fs.readdir(DATA_DIR))
+    .filter((f) => f.endsWith(".json"))
+    .sort();
+
+  // Читаємо файли по одному — не завантажуємо всі в память
+  async function* generateBooks() {
+    for (const file of files) {
+      const raw = await fs.readFile(path.join(DATA_DIR, file), "utf8");
+      yield JSON.parse(raw);
+    }
+  }
+
+  const toNdjson = new Transform({
+    objectMode: true,
+    transform(book, encoding, callback) {
+      const withUrl = withImageUrl(request, book);
+      callback(null, JSON.stringify(withUrl) + "\n");
+    },
+  });
+
+  reply.raw.setHeader("Content-Type", "application/x-ndjson");
+  await pipeline(Readable.from(generateBooks()), toNdjson, reply.raw);
 }
 
 export async function importBooks(request, reply) {
@@ -199,7 +236,6 @@ export async function importBooks(request, reply) {
 
   for (let i = 0; i < records.length; i++) {
     const raw = records[i];
-    // Нормалізація (CSV — всі поля рядки)
     const record = {
       title: raw.title?.trim(),
       author: raw.author?.trim(),

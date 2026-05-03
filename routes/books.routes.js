@@ -9,6 +9,7 @@ import {
   importBooks,
   uploadImage,
   getBookDetails,
+  streamBooks,
 } from "#controllers";
 import {
   createBookSchema,
@@ -31,8 +32,18 @@ const bookResponse = {
 };
 
 export default async function booksRoutes(fastify) {
-  // Статичні маршрути реєструємо ДО параметричних /:id
-  fastify.get("/books/export", { handler: exportBooks });
+  fastify.get("/books/export", {
+    schema: {
+      querystring: {
+        type: "object",
+        properties: {
+          transform: { type: "string", enum: ["true", "false"] },
+        },
+      },
+    },
+    handler: exportBooks,
+  });
+  fastify.get("/books/stream", { handler: streamBooks });
   fastify.post("/books/import", { handler: importBooks });
 
   fastify.get("/books", {

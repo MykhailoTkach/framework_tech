@@ -1,5 +1,4 @@
 import { NODE_ENV } from "./config/node-env.js";
-
 import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifySensible from "@fastify/sensible";
@@ -9,21 +8,21 @@ import fastifyMultipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "path";
 import fs from "fs/promises";
-
 import { envSchema, bookSchema } from "#schemas";
-// Routes
 import booksV2Routes from "./routes/books.v2.routes.js";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import githubRoutes, { githubV2Routes } from "./routes/github.routes.js";
-
 import booksRoutes from "./routes/books.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import { SHUTDOWN_TIMEOUT_MS } from "#constants";
 import { performBackup } from "./utils/backup.js";
 import { computeModelHash, getSavedHash } from "./src/migrations/migrate.js";
 import { BookModel } from "./src/models/book.model.js";
+
+import fastifyWebsocket from "@fastify/websocket";
+import wsRoutes from "./routes/ws.routes.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -52,9 +51,9 @@ export async function buildApp() {
   await fastify.register(fastifySensible);
 
   await fastify.register(fastifyMultipart, {
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    limits: { fileSize: 5 * 1024 * 1024 },
   });
-  //s
+  await fastify.register(fastifyWebsocket);
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 100,
@@ -85,7 +84,6 @@ export async function buildApp() {
   });
 
   await fs.mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
-  // s
   await fastify.register(fastifyStatic, {
     root: path.join(process.cwd(), "uploads"),
     prefix: "/uploads/",
@@ -106,14 +104,12 @@ export async function buildApp() {
 
   fastify.addSchema(bookSchema);
 
-  // Бекап при запуску
   try {
     await performBackup(fastify.log);
   } catch (err) {
     fastify.log.error(`Backup failed: ${err.message}`);
   }
 
-  // Перевірка міграції
   try {
     const current = computeModelHash(BookModel);
     const saved = await getSavedHash();
@@ -132,6 +128,8 @@ export async function buildApp() {
 
   await fastify.register(githubRoutes, { prefix: "/api/v1" });
   await fastify.register(githubV2Routes, { prefix: "/api/v2" });
+
+  await fastify.register(wsRoutes);
 
   fastify.addHook("onClose", async () => {
     fastify.log.info("Server closed successfully.");
@@ -158,6 +156,5 @@ export async function buildApp() {
     fastify.log.error(`Unhandled Rejection: ${msg}`);
     gracefulShutdown("unhandledRejection");
   });
-
   return fastify;
 }
