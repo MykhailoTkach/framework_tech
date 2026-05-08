@@ -20,9 +20,10 @@ import { SHUTDOWN_TIMEOUT_MS } from "#constants";
 import { performBackup } from "./utils/backup.js";
 import { computeModelHash, getSavedHash } from "./src/migrations/migrate.js";
 import { BookModel } from "./src/models/book.model.js";
-
 import fastifyWebsocket from "@fastify/websocket";
 import wsRoutes from "./routes/ws.routes.js";
+
+import mongoPlugin from "./db/mongo.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -34,6 +35,7 @@ export async function buildApp() {
   });
 
   await fastify.register(fastifyEnv, { schema: envSchema, dotenv: true });
+  await fastify.register(mongoPlugin);
 
   await fastify.register(fastifyHelmet, {
     global: true,
@@ -105,7 +107,7 @@ export async function buildApp() {
   fastify.addSchema(bookSchema);
 
   try {
-    await performBackup(fastify.log);
+    await performBackup(fastify.log, fastify.bookRepo);
   } catch (err) {
     fastify.log.error(`Backup failed: ${err.message}`);
   }

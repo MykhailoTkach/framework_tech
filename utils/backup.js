@@ -5,38 +5,26 @@ import { pipeline } from "stream/promises";
 import { Readable } from "stream";
 import path from "path";
 
-const DATA_DIR = path.join(process.cwd(), "data", "items");
 const BACKUPS_DIR = path.join(process.cwd(), "data", "backups");
 const MAX_BACKUPS = 5;
 
-export async function performBackup(logger) {
-  await fs.mkdir(DATA_DIR, { recursive: true });
+export async function performBackup(logger, bookRepo) {
   await fs.mkdir(BACKUPS_DIR, { recursive: true });
 
-  const files = (await fs.readdir(DATA_DIR).catch(() => [])).filter((f) =>
-    f.endsWith(".json"),
-  );
+  // Отримуємо дані з MongoDB через репозиторій
+  const books = await bookRepo.getAll();
 
-  if (files.length === 0) {
-    logger?.info("Nothing to backup — data/items/ is empty.");
+  if (books.length === 0) {
+    logger?.info("Nothing to backup — DB is empty.");
     return;
   }
 
-  // Зчитуємо вміст всіх файлів і обєднуємо
-  const contents = await Promise.all(
-    files.map(async (f) => {
-      const raw = await fs.readFile(path.join(DATA_DIR, f), "utf8");
-      return raw;
-    }),
-  );
-
-  // Обєднуємо всі JSON файли через новий рядок
-  const combined = contents.join("\n");
+  // Обʼєднуємо всі записи через новий рядок (NDJSON формат)
+  const combined = books.map((b) => JSON.stringify(b)).join("\n");
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const backupPath = path.join(BACKUPS_DIR, `${timestamp}.gz`);
 
-  // pipeline
   await pipeline(
     Readable.from([combined]),
     createGzip(),

@@ -2,7 +2,7 @@ const bookParamsSchema = {
   type: "object",
   required: ["id"],
   properties: {
-    id: { type: "integer", minimum: 1 },
+    id: { type: "string", minLength: 1 }, // змінили з integer на string
   },
 };
 

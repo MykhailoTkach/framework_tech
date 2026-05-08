@@ -10,7 +10,9 @@ const envSchema = {
       default: "development",
     },
     ADMIN_API_KEY: { type: "string", minLength: 1 },
-    GITHUB_TOKEN: { type: "string", default: "" }, // додано
+    GITHUB_TOKEN: { type: "string", default: "" },
+    MONGO_URL: { type: "string" },
+    MONGO_DB_NAME: { type: "string" },
   },
 };
 

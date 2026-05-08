@@ -2,7 +2,7 @@ export const bookSchema = {
   $id: "Book",
   type: "object",
   properties: {
-    id: { type: "integer" },
+    id: { type: "string" }, // змінили з integer на string
     title: { type: "string" },
     author: { type: "string" },
     year: { type: "integer" },
