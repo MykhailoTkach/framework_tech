@@ -10,7 +10,12 @@ const envSchema = {
       default: "development",
     },
     ADMIN_API_KEY: { type: "string", minLength: 1 },
-    GITHUB_TOKEN: { type: "string", default: "" }, // додано
+    GITHUB_TOKEN: { type: "string", default: "" },
+    MYSQL_HOST: { type: "string", default: "localhost" },
+    MYSQL_PORT: { type: "integer", default: 3306 },
+    MYSQL_USER: { type: "string" },
+    MYSQL_PASSWORD: { type: "string" },
+    MYSQL_DB: { type: "string" },
   },
 };
 

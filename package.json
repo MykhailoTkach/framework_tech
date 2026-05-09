@@ -25,6 +25,7 @@
     "dev": "node --watch --env-file=.env server.js",
     "dev:debug": "node --env-file=.env server.js",
     "seed": "node src/scripts/seed.js",
+    "seed:force": "node src/scripts/seed.js --force",
     "migrate": "node src/migrations/migrate.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -32,7 +33,8 @@
     "format:check": "prettier --check .",
     "check": "npm run lint && npm run format:check",
     "predev": "npm run check",
-    "external": "json-server db.json --port 3001"
+    "external": "json-server db.json --port 3001",
+    "db:init": "node db/init.js"
   },
   "repository": {
     "type": "git",
@@ -68,6 +70,7 @@
     "csv-parse": "^5.6.0",
     "csv-stringify": "^6.5.2",
     "fastify": "^5.8.4",
-    "fastify-plugin": "^5.1.0"
+    "fastify-plugin": "^5.1.0",
+    "mysql2": "^3.22.3"
   }
 }

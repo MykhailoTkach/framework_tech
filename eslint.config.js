@@ -30,7 +30,13 @@ export default [
     },
   },
   {
-    files: ["config/node-env.js", "controllers/github.controller.js"],
+    files: [
+      "config/node-env.js",
+      "controllers/github.controller.js",
+      "db/init.js",
+      "src/scripts/seed.js",
+      "src/migrations/migrate.js",
+    ],
     rules: {
       "no-restricted-syntax": "off",
     },

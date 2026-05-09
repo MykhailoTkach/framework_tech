@@ -18,11 +18,10 @@ import booksRoutes from "./routes/books.routes.js";
 import healthRoutes from "./routes/health.routes.js";
 import { SHUTDOWN_TIMEOUT_MS } from "#constants";
 import { performBackup } from "./utils/backup.js";
-import { computeModelHash, getSavedHash } from "./src/migrations/migrate.js";
-import { BookModel } from "./src/models/book.model.js";
-
 import fastifyWebsocket from "@fastify/websocket";
 import wsRoutes from "./routes/ws.routes.js";
+import mysqlPlugin from "./db/mysql.js";
+import { checkMigration } from "./src/migrations/migrate.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -34,6 +33,8 @@ export async function buildApp() {
   });
 
   await fastify.register(fastifyEnv, { schema: envSchema, dotenv: true });
+  await fastify.register(mysqlPlugin);
+  await checkMigration(fastify);
 
   await fastify.register(fastifyHelmet, {
     global: true,
@@ -53,7 +54,9 @@ export async function buildApp() {
   await fastify.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
   });
+
   await fastify.register(fastifyWebsocket);
+
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 100,
@@ -78,12 +81,11 @@ export async function buildApp() {
 
   await fastify.register(fastifySwaggerUi, {
     routePrefix: "/docs",
-    uiConfig: {
-      docExpansion: "list",
-    },
+    uiConfig: { docExpansion: "list" },
   });
 
   await fs.mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
+
   await fastify.register(fastifyStatic, {
     root: path.join(process.cwd(), "uploads"),
     prefix: "/uploads/",
@@ -105,21 +107,9 @@ export async function buildApp() {
   fastify.addSchema(bookSchema);
 
   try {
-    await performBackup(fastify.log);
+    await performBackup(fastify.log, fastify.bookRepo); // ← передаємо bookRepo
   } catch (err) {
     fastify.log.error(`Backup failed: ${err.message}`);
-  }
-
-  try {
-    const current = computeModelHash(BookModel);
-    const saved = await getSavedHash();
-    if (current !== saved) {
-      fastify.log.warn(
-        'Data schema changed. Run "npm run migrate" to update existing files.',
-      );
-    }
-  } catch (err) {
-    fastify.log.error(`Migration check failed: ${err.message}`);
   }
 
   await fastify.register(booksRoutes, { prefix: "/api/v1" });
@@ -156,5 +146,6 @@ export async function buildApp() {
     fastify.log.error(`Unhandled Rejection: ${msg}`);
     gracefulShutdown("unhandledRejection");
   });
+
   return fastify;
 }

@@ -1,4 +1,3 @@
-import * as db from "#data";
 import { MESSAGES } from "#constants";
 import { withImageUrl } from "../utils/imageUrl.js";
 import { stringify as stringifySync } from "csv-stringify/sync";
@@ -28,7 +27,12 @@ const importSchema = {
 const ajv = new Ajv({ coerceTypes: true });
 const validateImport = ajv.compile(importSchema);
 
+function getRepo(request) {
+  return request.server.bookRepo;
+}
+
 export async function getBooks(request, reply) {
+  const db = getRepo(request);
   const { author } = request.query;
   let books = await db.getAll();
   if (author !== undefined) {
@@ -40,6 +44,7 @@ export async function getBooks(request, reply) {
 }
 
 export async function getBooksV2(request, reply) {
+  const db = getRepo(request);
   const { author, page = 1, limit = 10 } = request.query;
   let books = await db.getAll();
 
@@ -60,6 +65,7 @@ export async function getBooksV2(request, reply) {
 }
 
 export async function getBookDetails(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
@@ -87,6 +93,7 @@ export async function getBookDetails(request, reply) {
 }
 
 export async function createBook(request, reply) {
+  const db = getRepo(request);
   const body = request.body;
   const book = await db.create({
     title: body.title.trim(),
@@ -94,12 +101,12 @@ export async function createBook(request, reply) {
     year: body.year,
     genre: body.genre?.trim() ?? "",
   });
-  console.log("Emitting CREATED event:", book.id);
   bookEvents.emit(EVENTS.CREATED, book);
   return reply.status(201).send(withImageUrl(request, book));
 }
 
 export async function getBookById(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
@@ -107,6 +114,7 @@ export async function getBookById(request, reply) {
 }
 
 export async function patchBook(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const body = request.body;
 
@@ -126,6 +134,7 @@ export async function patchBook(request, reply) {
 }
 
 export async function putBook(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const body = request.body;
 
@@ -145,6 +154,7 @@ export async function putBook(request, reply) {
 }
 
 export async function deleteBook(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const deleted = await db.remove(id);
   if (!deleted) throw reply.notFound(MESSAGES.NOT_FOUND);
@@ -156,6 +166,7 @@ export async function deleteBook(request, reply) {
 }
 
 export async function exportBooks(request, reply) {
+  const db = getRepo(request);
   const { transform } = request.query;
   const books = await db.getAll();
 
@@ -170,7 +181,6 @@ export async function exportBooks(request, reply) {
   reply.header("Content-Disposition", 'attachment; filename="books.csv"');
 
   if (transform === "true") {
-    // асинхронний stringify для stream
     const csvStringify = stringifyStream({ header: true });
     await pipeline(
       Readable.from(rows),
@@ -185,18 +195,8 @@ export async function exportBooks(request, reply) {
 }
 
 export async function streamBooks(request, reply) {
-  const DATA_DIR = path.join(process.cwd(), "data", "items");
-  const files = (await fs.readdir(DATA_DIR))
-    .filter((f) => f.endsWith(".json"))
-    .sort();
-
-  // Читаємо файли по одному — не завантажуємо всі в память
-  async function* generateBooks() {
-    for (const file of files) {
-      const raw = await fs.readFile(path.join(DATA_DIR, file), "utf8");
-      yield JSON.parse(raw);
-    }
-  }
+  const db = getRepo(request);
+  const books = await db.getAll();
 
   const toNdjson = new Transform({
     objectMode: true,
@@ -207,10 +207,11 @@ export async function streamBooks(request, reply) {
   });
 
   reply.raw.setHeader("Content-Type", "application/x-ndjson");
-  await pipeline(Readable.from(generateBooks()), toNdjson, reply.raw);
+  await pipeline(Readable.from(books), toNdjson, reply.raw);
 }
 
 export async function importBooks(request, reply) {
+  const db = getRepo(request);
   const data = await request.file();
   const buffer = await data.toBuffer();
 
@@ -260,6 +261,7 @@ export async function importBooks(request, reply) {
 }
 
 export async function uploadImage(request, reply) {
+  const db = getRepo(request);
   const { id } = request.params;
   const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
