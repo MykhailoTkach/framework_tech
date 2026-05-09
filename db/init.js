@@ -23,4 +23,3 @@ for (const statement of statements) {
 
 console.log("Schema initialized.");
 await pool.end();
-

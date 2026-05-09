@@ -1,85 +1,62 @@
+import { eq } from "drizzle-orm";
+import { books } from "../db/schema.js";
+
 export function createBookRepository(db) {
   return {
     async getAll() {
-      const [rows] = await db.execute("SELECT * FROM books");
-      return rows;
+      return db.select().from(books);
     },
 
     async findById(id) {
-      const [rows] = await db.execute("SELECT * FROM books WHERE id = ?", [id]);
+      const rows = await db.select().from(books).where(eq(books.id, id));
       return rows[0] ?? null;
     },
 
     async create(data) {
-      const [result] = await db.execute(
-        "INSERT INTO books (title, author, year, genre, image, pagecount) VALUES (?, ?, ?, ?, ?, ?)",
-        [
-          data.title,
-          data.author,
-          data.year,
-          data.genre ?? "",
-          data.image ?? null,
-          data.pagecount ?? 0,
-        ],
-      );
-      const [rows] = await db.execute("SELECT * FROM books WHERE id = ?", [
-        result.insertId,
-      ]);
+      const result = await db.insert(books).values({
+        title: data.title,
+        author: data.author,
+        year: data.year,
+        genre: data.genre ?? "",
+        image: data.image ?? null,
+        pagecount: data.pagecount ?? 0,
+      });
+      const rows = await db
+        .select()
+        .from(books)
+        .where(eq(books.id, result[0].insertId));
       return rows[0];
     },
 
     async update(id, data) {
-      const [existing] = await db.execute("SELECT * FROM books WHERE id = ?", [
-        id,
-      ]);
-      if (!existing[0]) return null;
-      const updated = { ...existing[0], ...data };
-      await db.execute(
-        "UPDATE books SET title=?, author=?, year=?, genre=?, image=?, pagecount=? WHERE id=?",
-        [
-          updated.title,
-          updated.author,
-          updated.year,
-          updated.genre,
-          updated.image,
-          updated.pagecount ?? 0,
-          id,
-        ],
-      );
-      const [rows] = await db.execute("SELECT * FROM books WHERE id = ?", [id]);
-      return rows[0];
+      const existing = await this.findById(id);
+      if (!existing) return null;
+      await db.update(books).set(data).where(eq(books.id, id));
+      return this.findById(id);
     },
 
     async replace(id, data) {
-      const [existing] = await db.execute("SELECT * FROM books WHERE id = ?", [
-        id,
-      ]);
-      if (!existing[0]) return null;
-      await db.execute(
-        "UPDATE books SET title=?, author=?, year=?, genre=?, image=?, pagecount=? WHERE id=?",
-        [
-          data.title,
-          data.author,
-          data.year,
-          data.genre ?? "",
-          data.image ?? null,
-          data.pagecount ?? 0,
-          id,
-        ],
-      );
-      const [rows] = await db.execute("SELECT * FROM books WHERE id = ?", [id]);
-      return rows[0];
+      const existing = await this.findById(id);
+      if (!existing) return null;
+      await db
+        .update(books)
+        .set({
+          title: data.title,
+          author: data.author,
+          year: data.year,
+          genre: data.genre ?? "",
+          image: data.image ?? null,
+          pagecount: data.pagecount ?? 0,
+        })
+        .where(eq(books.id, id));
+      return this.findById(id);
     },
 
     async remove(id) {
-      const [existing] = await db.execute("SELECT * FROM books WHERE id = ?", [
-        id,
-      ]);
-      if (!existing[0]) return null;
-      await db.execute("DELETE FROM books WHERE id=?", [id]);
-      return existing[0];
+      const existing = await this.findById(id);
+      if (!existing) return null;
+      await db.delete(books).where(eq(books.id, id));
+      return existing;
     },
   };
 }
-
-

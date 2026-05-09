@@ -21,7 +21,7 @@ import { performBackup } from "./utils/backup.js";
 import fastifyWebsocket from "@fastify/websocket";
 import wsRoutes from "./routes/ws.routes.js";
 import mysqlPlugin from "./db/mysql.js";
-import { checkMigration } from "./src/migrations/migrate.js";
+import drizzlePlugin from "./db/drizzle.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -34,7 +34,7 @@ export async function buildApp() {
 
   await fastify.register(fastifyEnv, { schema: envSchema, dotenv: true });
   await fastify.register(mysqlPlugin);
-  await checkMigration(fastify);
+  await fastify.register(drizzlePlugin);
 
   await fastify.register(fastifyHelmet, {
     global: true,

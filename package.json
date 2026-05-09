@@ -34,7 +34,9 @@
     "check": "npm run lint && npm run format:check",
     "predev": "npm run check",
     "external": "json-server db.json --port 3001",
-    "db:init": "node db/init.js"
+    "db:init": "node db/init.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "repository": {
     "type": "git",
@@ -49,6 +51,7 @@
   "homepage": "https://github.com/MykhailoTkach/framework_tech#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "json-server": "^1.0.0-beta.15",
@@ -69,6 +72,7 @@
     "ajv": "^8.18.0",
     "csv-parse": "^5.6.0",
     "csv-stringify": "^6.5.2",
+    "drizzle-orm": "^0.45.2",
     "fastify": "^5.8.4",
     "fastify-plugin": "^5.1.0",
     "mysql2": "^3.22.3"

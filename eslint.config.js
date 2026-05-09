@@ -36,6 +36,7 @@ export default [
       "db/init.js",
       "src/scripts/seed.js",
       "src/migrations/migrate.js",
+      "drizzle.config.js",
     ],
     rules: {
       "no-restricted-syntax": "off",

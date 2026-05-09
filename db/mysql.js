@@ -1,6 +1,5 @@
 import fp from "fastify-plugin";
 import mysql from "mysql2/promise";
-import { createBookRepository } from "../data/books.data.js";
 
 async function mysqlPlugin(fastify) {
   const pool = mysql.createPool({
@@ -23,7 +22,6 @@ async function mysqlPlugin(fastify) {
   }
 
   fastify.decorate("mysql", pool);
-  fastify.decorate("bookRepo", createBookRepository(pool)); // ← DI
 
   fastify.addHook("onClose", async () => {
     await pool.end();
