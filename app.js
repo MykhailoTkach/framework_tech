@@ -25,6 +25,10 @@ import drizzlePlugin from "./db/drizzle.js";
 
 import fastifyRedis from "@fastify/redis";
 
+import fastifyJwt from "@fastify/jwt";
+import fastifyCookie from "@fastify/cookie";
+import authRoutes from "./routes/auth.routes.js";
+
 export async function buildApp() {
   const fastify = Fastify({
     logger: {
@@ -62,6 +66,19 @@ export async function buildApp() {
     closeClient: true,
   });
 
+  await fastify.register(fastifyCookie);
+
+  await fastify.register(fastifyJwt, {
+    secret: fastify.config.JWT_SECRET,
+    trusted: async (request, decodedToken) => {
+      if (!decodedToken.jti) return true;
+      const isBlacklisted = await fastify.redis.get(
+        `blacklist:${decodedToken.jti}`,
+      );
+      return !isBlacklisted;
+    },
+  });
+
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 100,
@@ -82,13 +99,23 @@ export async function buildApp() {
         version: "1.0.0",
       },
       servers: [{ url: "http://localhost:3000" }],
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: "http",
+            scheme: "bearer",
+            bearerFormat: "JWT",
+          },
+        },
+      },
+      security: [{ bearerAuth: [] }],
     },
   });
-
   await fastify.register(fastifySwaggerUi, {
     routePrefix: "/docs",
     uiConfig: { docExpansion: "list" },
   });
+  await fastify.register(authRoutes, { prefix: "/auth" });
 
   await fs.mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
 
