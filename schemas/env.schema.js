@@ -11,6 +11,8 @@ const envSchema = {
     },
     ADMIN_API_KEY: { type: "string", minLength: 1 },
     GITHUB_TOKEN: { type: "string", default: "" },
+    REDIS_HOST: { type: "string", default: "localhost" },
+    REDIS_PORT: { type: "integer", default: 6379 },
     MYSQL_HOST: { type: "string", default: "localhost" },
     MYSQL_PORT: { type: "integer", default: 3306 },
     MYSQL_USER: { type: "string" },

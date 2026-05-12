@@ -23,6 +23,8 @@ import wsRoutes from "./routes/ws.routes.js";
 import mysqlPlugin from "./db/mysql.js";
 import drizzlePlugin from "./db/drizzle.js";
 
+import fastifyRedis from "@fastify/redis";
+
 export async function buildApp() {
   const fastify = Fastify({
     logger: {
@@ -50,17 +52,21 @@ export async function buildApp() {
   });
 
   await fastify.register(fastifySensible);
-
   await fastify.register(fastifyMultipart, {
     limits: { fileSize: 5 * 1024 * 1024 },
   });
-
   await fastify.register(fastifyWebsocket);
+  await fastify.register(fastifyRedis, {
+    host: fastify.config.REDIS_HOST,
+    port: fastify.config.REDIS_PORT,
+    closeClient: true,
+  });
 
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 100,
     timeWindow: "1 minute",
+    redis: fastify.redis, // ← Redis store
     errorResponseBuilder: () => ({
       statusCode: 429,
       error: "Too Many Requests",

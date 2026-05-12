@@ -8,11 +8,12 @@ import fs from "fs/promises";
 import path from "path";
 import { createWriteStream } from "fs";
 import { fetchWithRetry } from "../utils/fetchWithRetry.js";
-import { getCached, setCached } from "../utils/cache.js";
 import { pipeline } from "stream/promises";
 import { Readable, Transform } from "stream";
 import { BookAgeTransform } from "../src/transforms/bookTransform.js";
 import { bookEvents, EVENTS } from "../src/events/bookEvents.js";
+import { REDIS_KEYS } from "../constants/redis.keys.js";
+import { createCacheService } from "../services/cache.service.js";
 
 const importSchema = {
   type: "object",
@@ -31,6 +32,15 @@ function getRepo(request) {
   return request.server.bookRepo;
 }
 
+function getCache(request) {
+  return createCacheService({ redis: request.server.redis });
+}
+
+async function invalidateBooksCache(redis) {
+  const cache = createCacheService({ redis });
+  await cache.delByPattern("books:page:*");
+}
+
 export async function getBooks(request, reply) {
   const db = getRepo(request);
   const { author } = request.query;
@@ -45,14 +55,29 @@ export async function getBooks(request, reply) {
 
 export async function getBooksV2(request, reply) {
   const db = getRepo(request);
+  const cache = getCache(request);
   const { author, page = 1, limit = 10 } = request.query;
-  let books = await db.getAll();
 
-  if (author !== undefined) {
-    books = books.filter(
-      (b) => b.author.toLowerCase() === author.toLowerCase(),
-    );
+  if (!author) {
+    const cacheKey = REDIS_KEYS.booksPage(page, limit);
+    const cached = await cache.get(cacheKey);
+    if (cached) return reply.send(cached);
+
+    let books = await db.getAll();
+    const total = books.length;
+    const totalPages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+    const data = books
+      .slice(start, start + limit)
+      .map((b) => withImageUrl(request, b));
+
+    const result = { data, meta: { total, page, limit, totalPages } };
+    await cache.set(cacheKey, result, 86400); // TTL 24 години
+    return reply.send(result);
   }
+
+  let books = await db.getAll();
+  books = books.filter((b) => b.author.toLowerCase() === author.toLowerCase());
 
   const total = books.length;
   const totalPages = Math.ceil(total / limit);
@@ -66,12 +91,13 @@ export async function getBooksV2(request, reply) {
 
 export async function getBookDetails(request, reply) {
   const db = getRepo(request);
+  const cache = getCache(request);
   const { id } = request.params;
   const book = await db.findById(id);
   if (!book) throw reply.notFound(MESSAGES.NOT_FOUND);
 
-  const cacheKey = `genre_${book.genre}`;
-  let genreData = await getCached(cacheKey);
+  const cacheKey = REDIS_KEYS.genreCache(book.genre);
+  let genreData = await cache.get(cacheKey);
 
   if (!genreData) {
     try {
@@ -80,7 +106,7 @@ export async function getBookDetails(request, reply) {
       );
       const genres = await response.json();
       genreData = genres[0] ?? null;
-      if (genreData) await setCached(cacheKey, genreData);
+      if (genreData) await cache.set(cacheKey, genreData, 120);
     } catch {
       genreData = null;
     }
@@ -101,6 +127,7 @@ export async function createBook(request, reply) {
     year: body.year,
     genre: body.genre?.trim() ?? "",
   });
+  await invalidateBooksCache(request.server.redis);
   bookEvents.emit(EVENTS.CREATED, book);
   return reply.status(201).send(withImageUrl(request, book));
 }
@@ -129,6 +156,7 @@ export async function patchBook(request, reply) {
   if (body.genre !== undefined) updates.genre = body.genre.trim();
 
   const updated = await db.update(id, updates);
+  await invalidateBooksCache(request.server.redis);
   bookEvents.emit(EVENTS.UPDATED, updated);
   return reply.send(withImageUrl(request, updated));
 }
@@ -149,6 +177,7 @@ export async function putBook(request, reply) {
     genre: body.genre?.trim() ?? "",
     image: existing.image,
   });
+  await invalidateBooksCache(request.server.redis);
   bookEvents.emit(EVENTS.UPDATED, replaced);
   return reply.send(withImageUrl(request, replaced));
 }
@@ -158,7 +187,7 @@ export async function deleteBook(request, reply) {
   const { id } = request.params;
   const deleted = await db.remove(id);
   if (!deleted) throw reply.notFound(MESSAGES.NOT_FOUND);
-  bookEvents.emit(EVENTS.DELETED, { id });
+  await invalidateBooksCache(request.server.redis);
   return reply.send({
     message: `Book "${deleted.title}" deleted.`,
     book: deleted,

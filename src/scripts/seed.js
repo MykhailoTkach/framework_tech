@@ -5,8 +5,19 @@ import "dotenv/config";
 
 const INITIAL_BOOKS = [
   { title: "Kobzar", author: "Shevchenko", year: 1840, genre: "Poetry" },
-  { title: "Tini zabutykh predkiv", author: "Kotsiubynsky", year: 1911, genre: "Novel" },
-  { title: "Lisova pisnia", author: "Lesia Ukrainka", year: 1911, genre: "Drama" },];
+  {
+    title: "Tini zabutykh predkiv",
+    author: "Kotsiubynsky",
+    year: 1911,
+    genre: "Novel",
+  },
+  {
+    title: "Lisova pisnia",
+    author: "Lesia Ukrainka",
+    year: 1911,
+    genre: "Drama",
+  },
+];
 
 async function seed(force = false) {
   const pool = mysql.createPool({
@@ -39,5 +50,3 @@ seed(force).catch((err) => {
   console.error("Seed failed:", err);
   process.exit(1);
 });
-
-

@@ -22,4 +22,3 @@ export default fp(drizzlePlugin, {
   name: "drizzle-plugin",
   dependencies: ["mysql-plugin"],
 });
-
