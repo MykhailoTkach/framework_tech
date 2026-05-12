@@ -32,6 +32,13 @@ const bookResponse = {
 };
 
 export default async function booksRoutes(fastify) {
+  async function authenticate(request, reply) {
+    if (!request.session.userId) {
+      return reply.status(401).send({ error: "Unauthorized" });
+    }
+  }
+
+  // GET — публічні
   fastify.get("/books/export", {
     schema: {
       querystring: {
@@ -43,17 +50,12 @@ export default async function booksRoutes(fastify) {
     },
     handler: exportBooks,
   });
+
   fastify.get("/books/stream", { handler: streamBooks });
-  fastify.post("/books/import", { handler: importBooks });
 
   fastify.get("/books", {
     schema: { querystring: bookQuerySchema, response: { 200: bookListSchema } },
     handler: getBooks,
-  });
-
-  fastify.post("/books", {
-    schema: { body: createBookSchema, response: { 201: bookResponse } },
-    handler: createBook,
   });
 
   fastify.get("/books/:id", {
@@ -61,7 +63,24 @@ export default async function booksRoutes(fastify) {
     handler: getBookById,
   });
 
+  fastify.get("/books/:id/details", {
+    schema: { params: bookParamsSchema },
+    handler: getBookDetails,
+  });
+
+  fastify.post("/books/import", {
+    onRequest: [authenticate],
+    handler: importBooks,
+  });
+
+  fastify.post("/books", {
+    onRequest: [authenticate],
+    schema: { body: createBookSchema, response: { 201: bookResponse } },
+    handler: createBook,
+  });
+
   fastify.patch("/books/:id", {
+    onRequest: [authenticate],
     schema: {
       params: bookParamsSchema,
       body: updateBookSchema,
@@ -71,6 +90,7 @@ export default async function booksRoutes(fastify) {
   });
 
   fastify.put("/books/:id", {
+    onRequest: [authenticate],
     schema: {
       params: bookParamsSchema,
       body: createBookSchema,
@@ -80,17 +100,14 @@ export default async function booksRoutes(fastify) {
   });
 
   fastify.delete("/books/:id", {
+    onRequest: [authenticate],
     schema: { params: bookParamsSchema },
     handler: deleteBook,
   });
 
   fastify.post("/books/:id/image", {
+    onRequest: [authenticate],
     schema: { params: bookParamsSchema },
     handler: uploadImage,
-  });
-  // s
-  fastify.get("/books/:id/details", {
-    schema: { params: bookParamsSchema },
-    handler: getBookDetails,
   });
 }

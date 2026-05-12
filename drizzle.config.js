@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ path: ".env" });
 
 export default {
   schema: "./db/schema.js",

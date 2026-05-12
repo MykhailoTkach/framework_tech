@@ -22,8 +22,12 @@ import fastifyWebsocket from "@fastify/websocket";
 import wsRoutes from "./routes/ws.routes.js";
 import mysqlPlugin from "./db/mysql.js";
 import drizzlePlugin from "./db/drizzle.js";
-
 import fastifyRedis from "@fastify/redis";
+
+import fastifyCookie from "@fastify/cookie";
+import fastifySession from "@fastify/session";
+import RedisStore from "fastify-session-redis-store";
+import authRoutes from "./routes/auth.routes.js";
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -61,12 +65,23 @@ export async function buildApp() {
     port: fastify.config.REDIS_PORT,
     closeClient: true,
   });
+  await fastify.register(fastifyCookie);
+  await fastify.register(fastifySession, {
+    secret: fastify.config.SESSION_SECRET,
+    store: new RedisStore({ client: fastify.redis }),
+    cookie: {
+      httpOnly: true,
+      secure: fastify.config.NODE_ENV === "production",
+      maxAge: 86400000,
+    },
+    saveUninitialized: false,
+  });
 
   await fastify.register(fastifyRateLimit, {
     global: true,
     max: 100,
     timeWindow: "1 minute",
-    redis: fastify.redis, // ← Redis store
+    redis: fastify.redis,
     errorResponseBuilder: () => ({
       statusCode: 429,
       error: "Too Many Requests",
@@ -89,7 +104,6 @@ export async function buildApp() {
     routePrefix: "/docs",
     uiConfig: { docExpansion: "list" },
   });
-
   await fs.mkdir(path.join(process.cwd(), "uploads"), { recursive: true });
 
   await fastify.register(fastifyStatic, {
@@ -118,6 +132,7 @@ export async function buildApp() {
     fastify.log.error(`Backup failed: ${err.message}`);
   }
 
+  await fastify.register(authRoutes, { prefix: "/auth" });
   await fastify.register(booksRoutes, { prefix: "/api/v1" });
   await fastify.register(healthRoutes, { prefix: "/api/v1" });
   await fastify.register(booksV2Routes, { prefix: "/api/v2" });
