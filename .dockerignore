@@ -1,0 +1,13 @@
+﻿node_modules
+.env
+.env.*
+tests/
+coverage/
+.git
+.gitignore
+*.md
+drizzle/
+data/backups/
+uploads/
+
+

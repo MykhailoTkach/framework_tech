@@ -34,11 +34,13 @@ export async function buildApp() {
     logger: {
       level: NODE_ENV === "production" ? "error" : "info",
       transport:
-        NODE_ENV !== "production" ? { target: "pino-pretty" } : undefined,
+        NODE_ENV !== "production" && NODE_ENV !== "test"
+          ? { target: "pino-pretty" }
+          : undefined,
     },
   });
 
-  await fastify.register(fastifyEnv, { schema: envSchema, dotenv: true });
+  await fastify.register(fastifyEnv, { schema: envSchema, dotenv: false });
   await fastify.register(mysqlPlugin);
   await fastify.register(drizzlePlugin);
 

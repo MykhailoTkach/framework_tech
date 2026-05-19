@@ -6,7 +6,7 @@ const envSchema = {
     HOSTNAME: { type: "string", default: "localhost" },
     NODE_ENV: {
       type: "string",
-      enum: ["development", "production"],
+      enum: ["development", "production", "test"],
       default: "development",
     },
     ADMIN_API_KEY: { type: "string", minLength: 1 },

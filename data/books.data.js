@@ -29,10 +29,9 @@ export function createBookRepository(db) {
     },
 
     async update(id, data) {
-      const existing = await this.findById(id);
-      if (!existing) return null;
       await db.update(books).set(data).where(eq(books.id, id));
-      return this.findById(id);
+      const rows = await db.select().from(books).where(eq(books.id, id));
+      return rows[0] ?? null;
     },
 
     async replace(id, data) {
